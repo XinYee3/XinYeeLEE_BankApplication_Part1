@@ -1,0 +1,74 @@
+name: Java Report for BankApplication
+
+# Run this workflow on every 'push' event to the main branch
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build_and_report:
+    # Use the latest Ubuntu virtual machine
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out your repository's code
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Step 2: Check for compiled .class files (FAIL if found)
+      - name: Check for committed .class files
+        run: |
+          class_files=$(find . -type f -name "*.class" -print -quit)
+          if [ -n "$class_files" ]; then
+            echo "::error::Error: Compiled .class file found: $class_files"
+            echo "Please remove all compiled .class files from your repository."
+            exit 1
+          else
+            echo "No .class files found. Check passed."
+          fi
+
+      # Step 3: Find .java files and generate the report
+      - name: Generate Java file report
+        run: |
+          echo "Java File Report for BankApplication" > java-file-report.txt
+          echo "Generated on: $(date)" >> java-file-report.txt
+          echo "=====================================" >> java-file-report.txt
+          
+          # Find all .java files
+          java_files=$(find . -type f -name "*.java")
+          
+          if [ -z "$java_files" ]; then
+            echo "::error::Error: No .java files found in the repository."
+            exit 1
+          fi
+          
+          # Count files
+          file_count=$(echo "$java_files" | wc -l)
+          echo "Total .java files: $file_count" >> java-file-report.txt
+          echo "" >> java-file-report.txt
+          
+          # Count total lines
+          # We use cat | wc -l to get a clean total
+          total_lines=$(cat $java_files | wc -l)
+          echo "Total lines of code (all .java files): $total_lines" >> java-file-report.txt
+          echo "" >> java-file-report.txt
+          
+          # Get per-file breakdown
+          echo "Per-file breakdown (lines, path):" >> java-file-report.txt
+          # Use wc -l on the list of files, sort numerically, and clean up output
+          wc -l $java_files | grep -v 'total$' | sort -nr | awk '{print $1, $2}' >> java-file-report.txt
+          
+          echo "Report generation complete."
+
+      # Step 4: Upload the report as an artifact
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # The name of the artifact in GitHub
+          name: java-file-report
+          # The path to the file to upload
+          path: java-file-report.txt
